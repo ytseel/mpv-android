@@ -185,6 +185,24 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/holdSpeedIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="60dp"
+            android:background="@drawable/player_controls_panel"
+            android:paddingStart="22dp"
+            android:paddingEnd="22dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:text="2× Fast forward"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/statsTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -226,6 +244,20 @@
             android:alpha="0.5"
             android:background="@drawable/player_controls_panel"
             android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/topSpeedBtn"
+                style="?buttonBarButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:minWidth="64dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="1.0×"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:contentDescription="Playback speed" />
 
             <ImageButton
                 android:id="@+id/topLockBtn"
