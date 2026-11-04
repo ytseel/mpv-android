@@ -13,6 +13,7 @@ enum class PropertyChange {
     Seek,
     Volume,
     Bright,
+    Zoom,
     Finalize,
 
     /* Tap gestures */
@@ -33,8 +34,10 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         ControlSeek,
         ControlVolume,
         ControlBright,
+        ControlZoom,
     }
 
+    private var pinchStartDistance = 0f
     private var state = State.Up
     // relevant movement direction for the current state (0=H, 1=V)
     private var stateDirection = 0
@@ -167,6 +170,7 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
                 sendPropertyChange(PropertyChange.Volume, CONTROL_VOLUME_MAX * dr)
             State.ControlBright ->
                 sendPropertyChange(PropertyChange.Bright, CONTROL_BRIGHT_MAX * dr)
+            State.ControlZoom -> {}
         }
         return state != State.Up && state != State.Down
     }
@@ -210,7 +214,27 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         }
         var gestureHandled = false
         val point = PointF(e.x, e.y)
-        when (e.action) {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (e.pointerCount >= 2) {
+                    pinchStartDistance = hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1))
+                    state = State.ControlZoom
+                    sendPropertyChange(PropertyChange.Init, 0f)
+                    gestureHandled = true
+                }
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (state == State.ControlZoom) {
+                    sendPropertyChange(PropertyChange.Finalize, 0f)
+                    state = State.Up
+                    gestureHandled = true
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (state != State.Up) sendPropertyChange(PropertyChange.Finalize, 0f)
+                state = State.Up
+                gestureHandled = true
+            }
             MotionEvent.ACTION_UP -> {
                 gestureHandled = processMovement(point) or processTap(point)
                 if (state != State.Down)
@@ -229,7 +253,14 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
                 gestureHandled = true
             }
             MotionEvent.ACTION_MOVE -> {
-                gestureHandled = processMovement(point)
+                if (state == State.ControlZoom && e.pointerCount >= 2 && pinchStartDistance > 0f) {
+                    val distance = hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1))
+                    // mpv video-zoom is log2, so one octave of pinch doubles the image size.
+                    if (distance > 0f) sendPropertyChange(PropertyChange.Zoom, (ln(distance / pinchStartDistance) / ln(2f)))
+                    gestureHandled = true
+                } else if (state != State.ControlZoom) {
+                    gestureHandled = processMovement(point)
+                }
             }
         }
         return gestureHandled
