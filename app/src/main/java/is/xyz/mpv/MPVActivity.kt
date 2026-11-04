@@ -1459,6 +1459,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             layout.addView(this)
         }
         val apiKey = field("OpenSubtitles API key")
+        val bearerToken = field("Bearer token (if required)")
         val guess = (intent?.data?.lastPathSegment ?: intent?.getStringExtra("filepath")
             ?: MPVLib.getPropertyString("media-title") ?: "")
             .substringAfterLast('/').substringBeforeLast('.').replace('.', ' ')
@@ -1473,7 +1474,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                     Toast.makeText(this, "Enter an API key, title and language code", Toast.LENGTH_LONG).show()
                     restore()
                 } else {
-                    val client = OpenSubtitlesClient(applicationContext, key)
+                    val client = OpenSubtitlesClient(applicationContext, key, bearerToken.text.toString().trim())
                     Toast.makeText(this, "Searching subtitles…", Toast.LENGTH_SHORT).show()
                     Thread {
                         val result = runCatching { client.search(name, lang) }
