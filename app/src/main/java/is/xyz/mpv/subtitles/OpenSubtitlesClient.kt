@@ -13,7 +13,7 @@ data class SubtitleMatch(val fileId: Int, val label: String, val language: Strin
  * OpenSubtitles REST API v1. All calls must run off the UI thread.
  * Users supply their own API key; quotas and availability are provider-controlled.
  */
-class OpenSubtitlesClient(private val context: Context, private val apiKey: String) {
+class OpenSubtitlesClient(private val context: Context, private val apiKey: String, private val bearerToken: String = "") {
     private val root = "https://api.opensubtitles.com/api/v1"
 
     private fun connect(url: String, method: String = "GET"): HttpURLConnection {
@@ -23,6 +23,7 @@ class OpenSubtitlesClient(private val context: Context, private val apiKey: Stri
         connection.readTimeout = 20000
         connection.instanceFollowRedirects = true
         connection.setRequestProperty("Api-Key", apiKey)
+        if (bearerToken.isNotBlank()) connection.setRequestProperty("Authorization", "Bearer $bearerToken")
         connection.setRequestProperty("User-Agent", "mpv-android-custom v1")
         connection.setRequestProperty("Accept", "application/json")
         return connection
