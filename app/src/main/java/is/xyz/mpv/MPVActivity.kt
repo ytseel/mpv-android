@@ -1,6 +1,9 @@
 package `is`.xyz.mpv
 
 import `is`.xyz.mpv.databinding.PlayerBinding
+import `is`.xyz.mpv.library.PlaybackHistory
+import `is`.xyz.mpv.subtitles.SubtitleStyleController
+import `is`.xyz.mpv.subtitles.OpenSubtitlesClient
 import `is`.xyz.mpv.MPVLib.MpvEvent
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -304,6 +307,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
         player.addObserver(this)
         player.initialize(filesDir.path, cacheDir.path)
+        SubtitleStyleController(this).apply()
         player.playFile(filepath)
 
         mediaSession = initMediaSession()
@@ -455,6 +459,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     }
 
     private fun onPauseImpl() {
+        saveCustomHistory()
         val shouldBackground = shouldBackground()
 
         activityIsForeground = false
@@ -1382,6 +1387,132 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         dialog.show()
     }
 
+
+    private fun saveCustomHistory() {
+        val uri = intent?.data?.toString()
+            ?: intent?.getStringExtra("filepath")
+            ?: MPVLib.getPropertyString("path")
+            ?: return
+        val pos = psc.position.coerceAtLeast(0L)
+        val duration = psc.duration.coerceAtLeast(0L)
+        if (duration <= 0L && pos <= 0L) return
+        val title = uri.substringAfterLast('/').substringBefore('?').ifEmpty { "Video" }
+        PlaybackHistory(this).record(uri, title, pos, duration)
+    }
+
+    private fun showSubtitleStyleDialog(restore: StateRestoreCallback) {
+        val style = SubtitleStyleController(this)
+        val items = arrayOf("Font size", "Color", "Outline thickness", "Shadow", "Vertical position")
+        AlertDialog.Builder(this).setTitle("Subtitle appearance").setItems(items) { _, which ->
+            when (which) {
+                0 -> {
+                    val sizes = intArrayOf(24, 32, 38, 42, 50, 60, 72)
+                    AlertDialog.Builder(this).setTitle("Subtitle size")
+                        .setItems(sizes.map { "$it" }.toTypedArray()) { _, i -> style.setSize(sizes[i]) }
+                        .setOnDismissListener { restore() }.show()
+                }
+                1 -> {
+                    val colors = arrayOf("White", "Yellow", "Cyan", "Green")
+                    val values = arrayOf("#FFFFFF", "#FFFF00", "#00FFFF", "#00FF00")
+                    AlertDialog.Builder(this).setTitle("Subtitle color").setItems(colors) { _, i ->
+                        style.setColor(values[i])
+                    }.setOnDismissListener { restore() }.show()
+                }
+                2, 3, 4 -> {
+                    val values = if (which == 4) intArrayOf(70, 80, 90, 100, 110, 120, 130)
+                                 else intArrayOf(0, 1, 2, 3, 4, 5)
+                    AlertDialog.Builder(this).setTitle(items[which])
+                        .setItems(values.map { "$it" }.toTypedArray()) { _, i ->
+                            when (which) {
+                                2 -> style.setOutline(values[i])
+                                3 -> style.setShadow(values[i])
+                                else -> style.setPosition(values[i])
+                            }
+                        }.setOnDismissListener { restore() }.show()
+                }
+            }
+        }.setOnCancelListener { restore() }.show()
+    }
+
+    private fun showGestureSettingsDialog(restore: StateRestoreCallback) {
+        val seconds = intArrayOf(5, 10, 15, 20, 30, 60)
+        AlertDialog.Builder(this).setTitle("Double-tap seek interval")
+            .setSingleChoiceItems(seconds.map { "$it seconds" }.toTypedArray(),
+                seconds.indexOf(getSharedPreferences("custom_gestures", MODE_PRIVATE)
+                    .getInt("double_tap_seek_seconds", 10))) { dialog, i ->
+                getSharedPreferences("custom_gestures", MODE_PRIVATE).edit()
+                    .putInt("double_tap_seek_seconds", seconds[i]).apply()
+                dialog.dismiss()
+            }.setOnDismissListener { restore() }.show()
+    }
+
+    private fun showSubtitleDownloadDialog(restore: StateRestoreCallback) {
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, pad)
+        }
+        fun field(hint: String, value: String = "") = android.widget.EditText(this).apply {
+            this.hint = hint
+            setSingleLine(true)
+            setText(value)
+            layout.addView(this)
+        }
+        val apiKey = field("OpenSubtitles API key")
+        val guess = (intent?.data?.lastPathSegment ?: intent?.getStringExtra("filepath")
+            ?: MPVLib.getPropertyString("media-title") ?: "")
+            .substringAfterLast('/').substringBeforeLast('.').replace('.', ' ')
+        val query = field("Movie / episode name", guess)
+        val language = field("Language code (e.g. en)", "en")
+        AlertDialog.Builder(this).setTitle("Find subtitles")
+            .setView(layout).setPositiveButton("Search") { _, _ ->
+                val key = apiKey.text.toString().trim()
+                val name = query.text.toString().trim()
+                val lang = language.text.toString().trim()
+                if (key.isEmpty() || name.isEmpty() || !lang.matches(Regex("[a-z]{2,3}"))) {
+                    Toast.makeText(this, "Enter an API key, title and language code", Toast.LENGTH_LONG).show()
+                    restore()
+                } else {
+                    val client = OpenSubtitlesClient(applicationContext, key)
+                    Toast.makeText(this, "Searching subtitles…", Toast.LENGTH_SHORT).show()
+                    Thread {
+                        val result = runCatching { client.search(name, lang) }
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) return@runOnUiThread
+                            result.onSuccess { matches ->
+                                if (matches.isEmpty()) {
+                                    Toast.makeText(this, "No subtitles found", Toast.LENGTH_LONG).show()
+                                    restore()
+                                } else {
+                                    AlertDialog.Builder(this).setTitle("Choose subtitle")
+                                        .setItems(matches.map { it.label }.toTypedArray()) { _, i ->
+                                            Toast.makeText(this, "Downloading subtitle…", Toast.LENGTH_SHORT).show()
+                                            Thread {
+                                                val download = runCatching { client.download(matches[i].fileId) }
+                                                runOnUiThread {
+                                                    if (isFinishing || isDestroyed) return@runOnUiThread
+                                                    download.onSuccess { file ->
+                                                        MPVLib.command(arrayOf("sub-add", file.absolutePath, "select"))
+                                                        Toast.makeText(this, "Subtitle loaded", Toast.LENGTH_SHORT).show()
+                                                    }.onFailure { e ->
+                                                        Toast.makeText(this, "Subtitle download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                    restore()
+                                                }
+                                            }.start()
+                                        }.setOnDismissListener { restore() }.show()
+                                }
+                            }.onFailure { e ->
+                                Toast.makeText(this, "Subtitle search failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                restore()
+                            }
+                        }
+                    }.start()
+                }
+            }.setNegativeButton(android.R.string.cancel) { _, _ -> restore() }
+            .setOnCancelListener { restore() }.show()
+    }
+
     private fun openTopMenu() {
         val restoreState = pauseForDialog()
 
@@ -1412,6 +1543,9 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                         restoreState()
                     }; false
                 },
+                MenuItem(R.id.subtitleStyleBtn) { showSubtitleStyleDialog(restoreState); false },
+                MenuItem(R.id.subtitleDownloadBtn) { showSubtitleDownloadDialog(restoreState); false },
+                MenuItem(R.id.gestureSettingsBtn) { showGestureSettingsDialog(restoreState); false },
                 MenuItem(R.id.playlistBtn) {
                     openPlaylistMenu(restoreState); false
                 },
@@ -2118,7 +2252,8 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
             /* Tap gestures */
             PropertyChange.SeekFixed -> {
-                val seekTime = diff * 10f
+                val seekSeconds = getSharedPreferences("custom_gestures", MODE_PRIVATE).getInt("double_tap_seek_seconds", 10)
+                val seekTime = diff * seekSeconds.toFloat()
                 val newPos = psc.positionSec + seekTime.toInt() // only for display
                 MPVLib.command(arrayOf("seek", seekTime.toString(), "relative"))
 
