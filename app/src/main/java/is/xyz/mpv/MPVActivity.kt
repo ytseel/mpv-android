@@ -2165,6 +2165,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     private var initialSeek = 0f
     private var initialBright = 0f
+    private var initialZoom = 0.0
     private var initialVolume = 0
     private var maxVolume = 0
     /** 0 = initial, 1 = paused, 2 = was already paused */
@@ -2186,6 +2187,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
                 initialSeek = (psc.position / 1000f)
                 initialBright = Utils.getScreenBrightness(this) ?: 0.5f
+                initialZoom = MPVLib.getPropertyDouble("video-zoom") ?: 0.0
                 with (audioManager!!) {
                     initialVolume = getStreamVolume(STREAM_TYPE)
                     maxVolume = if (isVolumeFixed)
@@ -2243,6 +2245,11 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                 updateScreenBrightness()
 
                 gestureTextView.text = getString(R.string.ui_brightness, newBrightPercent)
+            }
+            PropertyChange.Zoom -> {
+                val zoom = (initialZoom + diff.toDouble()).coerceIn(-2.0, 3.0)
+                MPVLib.setPropertyDouble("video-zoom", zoom)
+                gestureTextView.text = "Zoom: ${'${'}(Math.pow(2.0, zoom) * 100).roundToInt()}%"
             }
             PropertyChange.Finalize -> {
                 if (pausedForSeek == 1)
