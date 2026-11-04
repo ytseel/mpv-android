@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+<LinearLayout
     android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -27,6 +30,30 @@
             android:text="@string/open_external_sub"
             android:textAllCaps="false" />
     </TableRow>
+
+    <Button
+        android:id="@+id/subtitleStyleBtn"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Subtitle appearance"
+        android:textAllCaps="false" />
+
+    <Button
+        android:id="@+id/subtitleDownloadBtn"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Find and download subtitles"
+        android:textAllCaps="false" />
+
+    <Button
+        android:id="@+id/gestureSettingsBtn"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Double-tap seek settings"
+        android:textAllCaps="false" />
 
     <Button
         android:id="@+id/playlistBtn"
@@ -97,3 +124,4 @@
         android:textAllCaps="false" />
 
 </LinearLayout>
+</ScrollView>
