@@ -74,6 +74,13 @@
 
     </LinearLayout>
 
+    <Button
+        android:id="@+id/libraryBtn"
+        style="@style/Widget.AppCompat.Button.Colored"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Browse video library" />
+
     <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/switch1"
         android:layout_width="match_parent"
