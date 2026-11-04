@@ -4,6 +4,8 @@ import android.content.SharedPreferences
 import android.content.res.Resources
 import android.graphics.PointF
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import kotlin.math.*
@@ -14,6 +16,8 @@ enum class PropertyChange {
     Volume,
     Bright,
     Zoom,
+    HoldSpeedStart,
+    HoldSpeedEnd,
     Finalize,
 
     /* Tap gestures */
@@ -35,8 +39,11 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         ControlVolume,
         ControlBright,
         ControlZoom,
+        HoldSpeed,
     }
 
+    private val holdHandler = Handler(Looper.getMainLooper())
+    private var holdTask: Runnable? = null
     private var pinchStartDistance = 0f
     private var state = State.Up
     // relevant movement direction for the current state (0=H, 1=V)
@@ -89,6 +96,8 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
 
         // maximum duration between taps (ms) for a double tap to count
         private const val TAP_DURATION = 300L
+        // Longer than the double-tap window, so two taps remain seek gestures.
+        private const val HOLD_DURATION = 450L
 
         // full sweep from left side to right side is 2:30
         private const val CONTROL_SEEK_MAX = 150f
@@ -103,6 +112,36 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         // do not trigger on X% of screen top/bottom
         // this is so that user can open android status bar
         private const val DEADZONE = 5
+    }
+
+    private fun cancelHoldTimer() {
+        holdTask?.let { holdHandler.removeCallbacks(it) }
+        holdTask = null
+    }
+
+    /** Call when playback leaves the foreground or the touch layer is locked. */
+    fun cancelPendingHold() {
+        cancelHoldTimer()
+        if (state == State.HoldSpeed)
+            sendPropertyChange(PropertyChange.HoldSpeedEnd, 0f)
+        state = State.Up
+        lastTapTime = 0L
+    }
+
+    private fun startHoldTimer() {
+        cancelHoldTimer()
+        if (initialPos.x > width * 0.32f && initialPos.x < width * 0.68f)
+            return
+        val task = Runnable {
+            holdTask = null
+            if (state == State.Down) {
+                state = State.HoldSpeed
+                lastTapTime = 0L
+                sendPropertyChange(PropertyChange.HoldSpeedStart, 0f)
+            }
+        }
+        holdTask = task
+        holdHandler.postDelayed(task, HOLD_DURATION)
     }
 
     private fun processTap(p: PointF): Boolean {
@@ -161,8 +200,10 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
                     stateDirection = 1
                 }
                 // send Init so that it has a chance to cache values before we start modifying them
-                if (state != State.Down)
+                if (state != State.Down) {
+                    cancelHoldTimer()
                     sendPropertyChange(PropertyChange.Init, 0f)
+                }
             }
             State.ControlSeek ->
                 sendPropertyChange(PropertyChange.Seek, CONTROL_SEEK_MAX * dr)
@@ -171,6 +212,7 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
             State.ControlBright ->
                 sendPropertyChange(PropertyChange.Bright, CONTROL_BRIGHT_MAX * dr)
             State.ControlZoom -> {}
+            State.HoldSpeed -> {}
         }
         return state != State.Up && state != State.Down
     }
@@ -216,6 +258,9 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         val point = PointF(e.x, e.y)
         when (e.actionMasked) {
             MotionEvent.ACTION_POINTER_DOWN -> {
+                cancelHoldTimer()
+                if (state == State.HoldSpeed)
+                    sendPropertyChange(PropertyChange.HoldSpeedEnd, 0f)
                 if (e.pointerCount >= 2) {
                     pinchStartDistance = hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1))
                     state = State.ControlZoom
@@ -231,14 +276,23 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
-                if (state != State.Up) sendPropertyChange(PropertyChange.Finalize, 0f)
+                cancelHoldTimer()
+                if (state == State.HoldSpeed) sendPropertyChange(PropertyChange.HoldSpeedEnd, 0f)
+                else if (state != State.Up) sendPropertyChange(PropertyChange.Finalize, 0f)
                 state = State.Up
                 gestureHandled = true
             }
             MotionEvent.ACTION_UP -> {
-                gestureHandled = processMovement(point) or processTap(point)
-                if (state != State.Down)
-                    sendPropertyChange(PropertyChange.Finalize, 0f)
+                cancelHoldTimer()
+                if (state == State.HoldSpeed) {
+                    sendPropertyChange(PropertyChange.HoldSpeedEnd, 0f)
+                    gestureHandled = true
+                    lastTapTime = 0L
+                } else {
+                    gestureHandled = processMovement(point) or processTap(point)
+                    if (state != State.Down)
+                        sendPropertyChange(PropertyChange.Finalize, 0f)
+                }
                 state = State.Up
             }
             MotionEvent.ACTION_DOWN -> {
@@ -249,10 +303,13 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
                 processTap(point)
                 lastPos.set(point)
                 state = State.Down
+                startHoldTimer()
                 // always return true on ACTION_DOWN to continue receiving events
                 gestureHandled = true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (state == State.Down && hypot(point.x - initialPos.x, point.y - initialPos.y) > trigger)
+                    cancelHoldTimer()
                 if (state == State.ControlZoom && e.pointerCount >= 2 && pinchStartDistance > 0f) {
                     val distance = hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1))
                     // mpv video-zoom is log2, so one octave of pinch doubles the image size.
