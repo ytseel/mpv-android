@@ -23,11 +23,11 @@
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
-            android:layout_marginLeft="24dp"
+            android:layout_marginLeft="16dp"
             android:layout_marginTop="60dp"
-            android:layout_marginRight="24dp"
-            android:layout_marginBottom="60dp"
-            android:background="#bf000000"
+            android:layout_marginRight="16dp"
+            android:layout_marginBottom="36dp"
+            android:background="@drawable/player_controls_panel"
             android:orientation="vertical">
 
             <LinearLayout
@@ -107,7 +107,9 @@
                     android:layout_gravity="center_vertical"
                     android:layout_weight="100"
                     android:minHeight="24dp"
-                    android:progressBackgroundTint="@color/tint_seekbar_bg" />
+                    android:progressBackgroundTint="@color/tint_seekbar_bg"
+                    android:progressTint="#5AA9FF"
+                    android:thumbTint="#BBDFFF" />
 
                 <TextView
                     android:id="@+id/playbackDurationTxt"
@@ -222,7 +224,7 @@
             android:layout_alignParentTop="true"
             android:layout_alignParentEnd="true"
             android:alpha="0.5"
-            android:background="#bf000000"
+            android:background="@drawable/player_controls_panel"
             android:orientation="horizontal">
 
             <ImageButton
