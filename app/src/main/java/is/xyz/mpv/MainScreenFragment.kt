@@ -5,6 +5,7 @@ import `is`.xyz.mpv.preferences.PreferenceActivity
 import `is`.xyz.mpv.databinding.FragmentMainScreenBinding
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import `is`.xyz.mpv.library.VideoLibraryActivity
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
@@ -81,6 +82,10 @@ class MainScreenFragment : Fragment(R.layout.fragment_main_screen) {
         binding = FragmentMainScreenBinding.bind(view)
 
         Utils.handleInsetsAsPadding(binding.root)
+
+        binding.libraryBtn.setOnClickListener {
+            startActivity(Intent(requireContext(), VideoLibraryActivity::class.java))
+        }
 
         binding.docBtn.setOnClickListener {
             try {
