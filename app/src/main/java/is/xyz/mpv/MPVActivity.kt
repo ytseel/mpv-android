@@ -2250,7 +2250,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             PropertyChange.Zoom -> {
                 val zoom = (initialZoom + diff.toDouble()).coerceIn(-2.0, 3.0)
                 MPVLib.setPropertyDouble("video-zoom", zoom)
-                gestureTextView.text = "Zoom: ${'${'}(Math.pow(2.0, zoom) * 100).roundToInt()}%"
+                gestureTextView.text = "Zoom: ${(Math.pow(2.0, zoom) * 100).roundToInt()}%"
             }
             PropertyChange.Finalize -> {
                 if (pausedForSeek == 1)
