@@ -1436,12 +1436,19 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     private fun showGestureSettingsDialog(restore: StateRestoreCallback) {
         val seconds = intArrayOf(5, 10, 15, 20, 30, 60)
-        AlertDialog.Builder(this).setTitle("Double-tap seek interval")
+        AlertDialog.Builder(this).setTitle("Double-tap seek: left = back, right = forward")
             .setSingleChoiceItems(seconds.map { "$it seconds" }.toTypedArray(),
                 seconds.indexOf(getSharedPreferences("custom_gestures", MODE_PRIVATE)
                     .getInt("double_tap_seek_seconds", 10))) { dialog, i ->
                 getSharedPreferences("custom_gestures", MODE_PRIVATE).edit()
                     .putInt("double_tap_seek_seconds", seconds[i]).apply()
+                // Enabling the interval should also enable the gesture itself.
+                // The original app defaults double-tap actions to 'none'.
+                getDefaultSharedPreferences(applicationContext).edit()
+                    .putString("gesture_tap_left", "seek")
+                    .putString("gesture_tap_right", "seek")
+                    .apply()
+                gestures.syncSettings(getDefaultSharedPreferences(applicationContext), resources)
                 dialog.dismiss()
             }.setOnDismissListener { restore() }.show()
     }
