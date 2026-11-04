@@ -88,6 +88,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     private lateinit var binding: PlayerBinding
     private lateinit var gestures: TouchGestures
+    private var speedBeforeHold: Double? = null
 
     // convenience alias
     private val player get() = binding.player
@@ -201,6 +202,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             playBtn.setOnClickListener { player.cyclePause() }
             cycleDecoderBtn.setOnClickListener { player.cycleHwdec() }
             cycleSpeedBtn.setOnClickListener { cycleSpeed() }
+            topSpeedBtn.setOnClickListener { showOverlaySpeedDialog() }
             topLockBtn.setOnClickListener { lockUI() }
             topPiPBtn.setOnClickListener { goIntoPiP() }
             topMenuBtn.setOnClickListener { openTopMenu() }
@@ -347,6 +349,8 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     }
 
     override fun onDestroy() {
+        if (::gestures.isInitialized) gestures.cancelPendingHold()
+        stopTemporarySpeed()
         Log.v(TAG, "Exiting.")
 
         // Suppress any further callbacks
@@ -433,6 +437,8 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     }
 
     override fun onPause() {
+        if (::gestures.isInitialized) gestures.cancelPendingHold()
+        stopTemporarySpeed()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             if (isInMultiWindowMode || isInPictureInPictureMode) {
                 Log.v(TAG, "Going into multi-window mode")
@@ -1318,6 +1324,70 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         }
     }
 
+    /**
+     * Speed choices live on the player overlay, without opening app settings.
+     * Preset selection is immediate; Custom accepts fractional playback speeds.
+     */
+    private fun showOverlaySpeedDialog() {
+        val values = doubleArrayOf(0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0)
+        val labels = values.map { "${it}×" }.toMutableList().apply { add("Custom…") }
+        val current = MPVLib.getPropertyDouble("speed") ?: 1.0
+        val selected = values.indexOfFirst { kotlin.math.abs(it - current) < 0.001 }
+        AlertDialog.Builder(this)
+            .setTitle("Playback speed")
+            .setSingleChoiceItems(labels.toTypedArray(), selected) { dialog, index ->
+                dialog.dismiss()
+                if (index == values.size) {
+                    val input = android.widget.EditText(this).apply {
+                        inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                            android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                        setSingleLine(true)
+                        setText("%.2f".format(java.util.Locale.US, current))
+                        selectAll()
+                    }
+                    AlertDialog.Builder(this)
+                        .setTitle("Custom playback speed (0.25–4×)")
+                        .setView(input)
+                        .setPositiveButton("Apply") { _, _ ->
+                            val entered = input.text.toString().toDoubleOrNull()
+                            if (entered == null || !entered.isFinite() ||
+                                entered < 0.25 || entered > 4.0) {
+                                showToast("Enter a speed from 0.25 to 4.0")
+                            } else {
+                                MPVLib.setPropertyDouble("speed", entered)
+                                binding.topSpeedBtn.text = "${entered}×"
+                            }
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                } else {
+                    MPVLib.setPropertyDouble("speed", values[index])
+                    binding.topSpeedBtn.text = "${values[index]}×"
+                }
+            }.setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun startTemporarySpeed() {
+        if (speedBeforeHold != null || lockedUI) return
+        speedBeforeHold = MPVLib.getPropertyDouble("speed") ?: psc.speed.toDouble()
+        MPVLib.setPropertyDouble("speed", 2.0)
+        binding.holdSpeedIndicator.visibility = View.VISIBLE
+        binding.topSpeedBtn.text = "2.0×"
+        // Do not show controls under the finger or start a seek drag.
+        mightWantToToggleControls = false
+    }
+
+    private fun stopTemporarySpeed() {
+        val original = speedBeforeHold ?: return
+        speedBeforeHold = null
+        MPVLib.setPropertyDouble("speed", original)
+        if (::binding.isInitialized) {
+            binding.holdSpeedIndicator.visibility = View.GONE
+            binding.topSpeedBtn.text = "${original}×"
+        }
+    }
+
     private fun cycleSpeed() {
         player.cycleSpeed()
     }
@@ -1340,6 +1410,8 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     }
 
     private fun lockUI() {
+        gestures.cancelPendingHold()
+        stopTemporarySpeed()
         lockedUI = true
         hideControlsFade()
     }
@@ -1882,6 +1954,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     private fun updateSpeedButton() {
         binding.cycleSpeedBtn.text = getString(R.string.ui_speed, psc.speed)
+        binding.topSpeedBtn.text = "${if (speedBeforeHold != null) 2.0 else psc.speed}×"
     }
 
     private fun updatePlaylistButtons() {
@@ -2254,6 +2327,8 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
                 gestureTextView.text = getString(R.string.ui_brightness, newBrightPercent)
             }
+            PropertyChange.HoldSpeedStart -> startTemporarySpeed()
+            PropertyChange.HoldSpeedEnd -> stopTemporarySpeed()
             PropertyChange.Zoom -> {
                 val zoom = (initialZoom + diff.toDouble()).coerceIn(-2.0, 3.0)
                 MPVLib.setPropertyDouble("video-zoom", zoom)
