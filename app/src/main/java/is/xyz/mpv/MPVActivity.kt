@@ -503,6 +503,16 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             prefs.getString(key, resources.getString(defaultRes))!!
         }
 
+        // Migrate the previous center double-tap default ("none") once.
+        // Preserve user changes made after migration, including disabling the gesture.
+        if (!prefs.getBoolean("center_double_tap_playpause_migrated", false)) {
+            val previous = prefs.getString("gesture_tap_center", null)
+            with(prefs.edit()) {
+                if (previous == "none") putString("gesture_tap_center", "playpause")
+                putBoolean("center_double_tap_playpause_migrated", true)
+                apply()
+            }
+        }
         gestures.syncSettings(prefs, resources)
 
         val statsMode = prefs.getString("stats_mode", "") ?: ""
