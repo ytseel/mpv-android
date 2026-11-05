@@ -158,7 +158,7 @@
     <string name="pref_gesture_tap_left_default" translatable="false">seek</string>
 
     <string name="pref_gesture_tap_center_title">Double tap (center)</string>
-    <string name="pref_gesture_tap_center_default" translatable="false">none</string>
+    <string name="pref_gesture_tap_center_default" translatable="false">playpause</string>
 
     <string name="pref_gesture_tap_right_title">Double tap (right)</string>
     <string name="pref_gesture_tap_right_default" translatable="false">seek</string>
