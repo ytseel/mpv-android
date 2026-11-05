@@ -197,11 +197,12 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         with (binding) {
             prevBtn.setOnClickListener { playlistPrev() }
             nextBtn.setOnClickListener { playlistNext() }
-            cycleAudioBtn.setOnClickListener { cycleAudio() }
-            cycleSubsBtn.setOnClickListener { cycleSub() }
+            cycleAudioBtn.setOnClickListener { pickAudio() }
+            cycleSubsBtn.setOnClickListener { pickSub() }
             playBtn.setOnClickListener { player.cyclePause() }
-            cycleDecoderBtn.setOnClickListener { player.cycleHwdec() }
-            cycleSpeedBtn.setOnClickListener { cycleSpeed() }
+            aspectRatioBtn.setOnClickListener { cycleAspectRatio() }
+            subDelayMinusBtn.setOnClickListener { adjustSubtitleDelay(-0.5) }
+            subDelayPlusBtn.setOnClickListener { adjustSubtitleDelay(0.5) }
             topSpeedBtn.setOnClickListener { showOverlaySpeedDialog() }
             topLockBtn.setOnClickListener { lockUI() }
             topPiPBtn.setOnClickListener { goIntoPiP() }
@@ -213,12 +214,10 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                 updatePlaybackDuration(psc.durationSec)
             }
 
-            cycleAudioBtn.setOnLongClickListener { pickAudio(); true }
-            cycleSpeedBtn.setOnLongClickListener { pickSpeed(); true }
-            cycleSubsBtn.setOnLongClickListener { pickSub(); true }
+            cycleAudioBtn.setOnLongClickListener { cycleAudio(); true }
+            cycleSubsBtn.setOnLongClickListener { cycleSub(); true }
             prevBtn.setOnLongClickListener { openPlaylistMenu(pauseForDialog()); true }
             nextBtn.setOnLongClickListener { openPlaylistMenu(pauseForDialog()); true }
-            cycleDecoderBtn.setOnLongClickListener { pickDecoder(); true }
 
             playbackSeekbar.setOnSeekBarChangeListener(seekBarChangeListener)
         }
@@ -1412,6 +1411,47 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         }
     }
 
+    private var aspectRatioMode = 0
+    private val aspectRatioLabels = arrayOf("FIT", "FILL", "16:9", "4:3", "1:1")
+
+    /** Cycle video display modes without changing the underlying media decoder. */
+    private fun cycleAspectRatio() {
+        aspectRatioMode = (aspectRatioMode + 1) % aspectRatioLabels.size
+        when (aspectRatioMode) {
+            0 -> {
+                MPVLib.setPropertyString("video-aspect-override", "-1")
+                MPVLib.setPropertyDouble("panscan", 0.0)
+            }
+            1 -> {
+                MPVLib.setPropertyString("video-aspect-override", "-1")
+                MPVLib.setPropertyDouble("panscan", 1.0)
+            }
+            2 -> {
+                MPVLib.setPropertyDouble("panscan", 0.0)
+                MPVLib.setPropertyString("video-aspect-override", "16:9")
+            }
+            3 -> {
+                MPVLib.setPropertyDouble("panscan", 0.0)
+                MPVLib.setPropertyString("video-aspect-override", "4:3")
+            }
+            4 -> {
+                MPVLib.setPropertyDouble("panscan", 0.0)
+                MPVLib.setPropertyString("video-aspect-override", "1:1")
+            }
+        }
+        binding.aspectRatioBtn.text = aspectRatioLabels[aspectRatioMode]
+        showToast("Aspect ratio: " + aspectRatioLabels[aspectRatioMode], true)
+    }
+
+    /** mpv subtitle delay: positive means subtitles appear later. */
+    private fun adjustSubtitleDelay(deltaSeconds: Double) {
+        val current = MPVLib.getPropertyDouble("sub-delay") ?: 0.0
+        val next = (kotlin.math.round((current + deltaSeconds) * 2.0) / 2.0)
+            .coerceIn(-30.0, 30.0)
+        MPVLib.setPropertyDouble("sub-delay", next)
+        showToast("Subtitle delay: " + String.format(java.util.Locale.US, "%+.1f s", next), true)
+    }
+
     private fun goIntoPiP() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
             return
@@ -1843,17 +1883,15 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         updateAudioUI()
         updateOrientation()
         updateMetadataDisplay()
-        updateDecoderButton()
         updateSpeedButton()
         updatePlaylistButtons()
         player.loadTracks()
     }
 
     private fun updateAudioUI() {
-        val audioButtons = arrayOf(R.id.prevBtn, R.id.cycleAudioBtn, R.id.playBtn,
-                R.id.cycleSpeedBtn, R.id.nextBtn)
+        val audioButtons = arrayOf(R.id.prevBtn, R.id.cycleAudioBtn, R.id.playBtn, R.id.nextBtn)
         val videoButtons = arrayOf(R.id.cycleAudioBtn, R.id.cycleSubsBtn, R.id.playBtn,
-                R.id.cycleDecoderBtn, R.id.cycleSpeedBtn)
+                R.id.aspectRatioBtn, R.id.subDelayMinusBtn, R.id.subDelayPlusBtn)
 
         val shouldUseAudioUI = isPlayingAudioOnly()
         if (shouldUseAudioUI == useAudioUI)
@@ -1954,16 +1992,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         }
     }
 
-    private fun updateDecoderButton() {
-        binding.cycleDecoderBtn.text = when (player.hwdecActive) {
-            "mediacodec" -> "HW+"
-            "no" -> "SW"
-            else -> "HW"
-        }
-    }
-
     private fun updateSpeedButton() {
-        binding.cycleSpeedBtn.text = getString(R.string.ui_speed, psc.speed)
         binding.topSpeedBtn.text = "${if (speedBeforeHold != null) 2.0 else psc.speed}×"
     }
 
@@ -2112,7 +2141,6 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         when (property) {
             "track-list" -> player.loadTracks()
             "current-tracks/audio/selected", "current-tracks/video/image" -> updateAudioUI()
-            "hwdec-current" -> updateDecoderButton()
         }
         if (metaUpdated)
             updateMetadataDisplay()
