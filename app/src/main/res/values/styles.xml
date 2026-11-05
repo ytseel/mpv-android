@@ -55,4 +55,15 @@
     <style name="Preference.SwitchPreferenceCompat" parent="Preference.SwitchPreferenceCompat.Material" tools:override="true">
         <item name="android:widgetLayout">@layout/material_preferences_switch</item>
     </style>
+    <!-- Dark translucent overlay for audio and subtitle track selection. -->
+    <style name="TransparentTrackDialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/track_dialog_panel</item>
+        <item name="android:colorBackground">#D911151B</item>
+        <item name="android:textColorPrimary">#FFFFFFFF</item>
+        <item name="android:textColorSecondary">#FFE2E5EA</item>
+        <item name="colorAccent">#FF88C6FF</item>
+        <item name="textColorAlertDialogListItem">#FFFFFFFF</item>
+        <item name="android:backgroundDimAmount">0.12</item>
+    </style>
+
 </resources>
