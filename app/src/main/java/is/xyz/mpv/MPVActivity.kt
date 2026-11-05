@@ -200,6 +200,14 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             cycleAudioBtn.setOnClickListener { pickAudio() }
             cycleSubsBtn.setOnClickListener { pickSub() }
             playBtn.setOnClickListener { player.cyclePause() }
+            subtitleSyncBtn.setOnClickListener { toggleSubtitleSyncOverlay() }
+            syncMinusBtn.setOnClickListener { adjustSubtitleDelay(-0.5) }
+            syncPlusBtn.setOnClickListener { adjustSubtitleDelay(0.5) }
+            syncResetBtn.setOnClickListener {
+                MPVLib.setPropertyDouble("sub-delay", 0.0)
+                updateSubtitleSyncLabel()
+            }
+            syncCloseBtn.setOnClickListener { hideSubtitleSyncOverlay() }
             topSpeedBtn.setOnClickListener { showOverlaySpeedDialog() }
             topLockBtn.setOnClickListener { lockUI() }
             topPiPBtn.setOnClickListener { goIntoPiP() }
@@ -433,6 +441,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     }
 
     override fun onPause() {
+        hideSubtitleSyncOverlay()
         if (::gestures.isInitialized) gestures.cancelPendingHold()
         stopTemporarySpeed()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -1224,12 +1233,15 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     }
 
     private fun selectTrack(type: String, get: () -> Int, set: (Int) -> Unit) {
+        hideSubtitleSyncOverlay()
+        player.loadTracks()
         val tracks = player.tracks.getValue(type)
         val selectedMpvId = get()
         val selectedIndex = tracks.indexOfFirst { it.mpvId == selectedMpvId }
         val restore = pauseForDialog()
 
-        with (AlertDialog.Builder(this)) {
+        with (AlertDialog.Builder(this, R.style.TransparentTrackDialog)) {
+            setTitle("Audio tracks")
             setSingleChoiceItems(tracks.map { it.name }.toTypedArray(), selectedIndex) { dialog, item ->
                 val trackId = tracks[item].mpvId
 
@@ -1238,47 +1250,35 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                 trackSwitchNotification { TrackData(trackId, type) }
             }
             setOnDismissListener { restore() }
-            create().show()
+            create().apply {
+                show()
+                window?.setBackgroundDrawableResource(R.drawable.track_dialog_panel)
+            }
         }
     }
 
     private fun pickAudio() = selectTrack("audio", { player.aid }, { player.aid = it })
 
     private fun pickSub() {
+        hideSubtitleSyncOverlay()
+        player.loadTracks()
         val restore = pauseForDialog()
         val impl = SubTrackDialog(player)
         lateinit var dialog: AlertDialog
-        impl.listener = { it, secondary ->
-            if (secondary)
-                player.secondarySid = it.mpvId
-            else
-                player.sid = it.mpvId
+        impl.listener = { track, _ ->
+            player.sid = track.mpvId
             dialog.dismiss()
-            trackSwitchNotification { TrackData(it.mpvId, SubTrackDialog.TRACK_TYPE) }
+            trackSwitchNotification { TrackData(track.mpvId, SubTrackDialog.TRACK_TYPE) }
         }
 
-        dialog = with (AlertDialog.Builder(this)) {
-            val inflater = LayoutInflater.from(context)
-            val subtitleView = impl.buildView(inflater)
-            val delayValue = subtitleView.findViewById<android.widget.TextView>(R.id.subtitleDelayValue)
-            fun refreshDelayLabel() {
-                val delay = MPVLib.getPropertyDouble("sub-delay") ?: 0.0
-                delayValue.text = String.format(java.util.Locale.US, "Sync: %+.1fs", delay)
-            }
-            refreshDelayLabel()
-            subtitleView.findViewById<Button>(R.id.subtitleDelayMinus).setOnClickListener {
-                adjustSubtitleDelay(-0.5)
-                refreshDelayLabel()
-            }
-            subtitleView.findViewById<Button>(R.id.subtitleDelayPlus).setOnClickListener {
-                adjustSubtitleDelay(0.5)
-                refreshDelayLabel()
-            }
-            setView(subtitleView)
+        dialog = with (AlertDialog.Builder(this, R.style.TransparentTrackDialog)) {
+            setTitle("Subtitles")
+            setView(impl.buildView(LayoutInflater.from(context)))
             setOnDismissListener { restore() }
             create()
         }
         dialog.show()
+        dialog.window?.setBackgroundDrawableResource(R.drawable.track_dialog_panel)
     }
 
     private fun openPlaylistMenu(restore: StateRestoreCallback) {
@@ -1423,13 +1423,35 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         }
     }
 
-    /** mpv subtitle delay: positive means subtitles appear later. */
+    private fun updateSubtitleSyncLabel() {
+        val delay = MPVLib.getPropertyDouble("sub-delay") ?: 0.0
+        binding.syncDelayText.text = String.format(java.util.Locale.US, "%+.1fs", delay)
+    }
+
+    private fun toggleSubtitleSyncOverlay() {
+        if (binding.subtitleSyncOverlay.visibility == View.VISIBLE) {
+            hideSubtitleSyncOverlay()
+        } else {
+            updateSubtitleSyncLabel()
+            binding.subtitleSyncOverlay.visibility = View.VISIBLE
+            // Keep video playing, and leave the controls touchable.
+            fadeHandler.removeCallbacks(fadeRunnable)
+        }
+    }
+
+    private fun hideSubtitleSyncOverlay() {
+        if (::binding.isInitialized) {
+            binding.subtitleSyncOverlay.visibility = View.GONE
+        }
+    }
+
+    /** Positive delay makes subtitle text appear later. Applied live without pausing video. */
     private fun adjustSubtitleDelay(deltaSeconds: Double) {
         val current = MPVLib.getPropertyDouble("sub-delay") ?: 0.0
         val next = (kotlin.math.round((current + deltaSeconds) * 2.0) / 2.0)
             .coerceIn(-30.0, 30.0)
         MPVLib.setPropertyDouble("sub-delay", next)
-        showToast("Subtitle delay: " + String.format(java.util.Locale.US, "%+.1f s", next), true)
+        updateSubtitleSyncLabel()
     }
 
     private fun goIntoPiP() {
@@ -1440,6 +1462,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     }
 
     private fun lockUI() {
+        hideSubtitleSyncOverlay()
         gestures.cancelPendingHold()
         stopTemporarySpeed()
         lockedUI = true
@@ -1870,7 +1893,8 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     private fun updateAudioUI() {
         val audioButtons = arrayOf(R.id.prevBtn, R.id.cycleAudioBtn, R.id.playBtn, R.id.nextBtn)
-        val videoButtons = arrayOf(R.id.cycleAudioBtn, R.id.cycleSubsBtn, R.id.playBtn)
+        val videoButtons = arrayOf(R.id.cycleAudioBtn, R.id.cycleSubsBtn,
+                R.id.playBtn, R.id.subtitleSyncBtn)
 
         val shouldUseAudioUI = isPlayingAudioOnly()
         if (shouldUseAudioUI == useAudioUI)
