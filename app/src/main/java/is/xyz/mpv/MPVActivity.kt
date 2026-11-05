@@ -201,8 +201,6 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             cycleSubsBtn.setOnClickListener { pickSub() }
             playBtn.setOnClickListener { player.cyclePause() }
             aspectRatioBtn.setOnClickListener { cycleAspectRatio() }
-            subDelayMinusBtn.setOnClickListener { adjustSubtitleDelay(-0.5) }
-            subDelayPlusBtn.setOnClickListener { adjustSubtitleDelay(0.5) }
             topSpeedBtn.setOnClickListener { showOverlaySpeedDialog() }
             topLockBtn.setOnClickListener { lockUI() }
             topPiPBtn.setOnClickListener { goIntoPiP() }
@@ -1262,7 +1260,22 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
         dialog = with (AlertDialog.Builder(this)) {
             val inflater = LayoutInflater.from(context)
-            setView(impl.buildView(inflater))
+            val subtitleView = impl.buildView(inflater)
+            val delayValue = subtitleView.findViewById<android.widget.TextView>(R.id.subtitleDelayValue)
+            fun refreshDelayLabel() {
+                val delay = MPVLib.getPropertyDouble("sub-delay") ?: 0.0
+                delayValue.text = String.format(java.util.Locale.US, "Sync: %+.1fs", delay)
+            }
+            refreshDelayLabel()
+            subtitleView.findViewById<Button>(R.id.subtitleDelayMinus).setOnClickListener {
+                adjustSubtitleDelay(-0.5)
+                refreshDelayLabel()
+            }
+            subtitleView.findViewById<Button>(R.id.subtitleDelayPlus).setOnClickListener {
+                adjustSubtitleDelay(0.5)
+                refreshDelayLabel()
+            }
+            setView(subtitleView)
             setOnDismissListener { restore() }
             create()
         }
@@ -1891,7 +1904,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     private fun updateAudioUI() {
         val audioButtons = arrayOf(R.id.prevBtn, R.id.cycleAudioBtn, R.id.playBtn, R.id.nextBtn)
         val videoButtons = arrayOf(R.id.cycleAudioBtn, R.id.cycleSubsBtn, R.id.playBtn,
-                R.id.aspectRatioBtn, R.id.subDelayMinusBtn, R.id.subDelayPlusBtn)
+                R.id.aspectRatioBtn)
 
         val shouldUseAudioUI = isPlayingAudioOnly()
         if (shouldUseAudioUI == useAudioUI)
