@@ -165,16 +165,7 @@
                     app:tint="@color/tint_normal"
                     tools:src="@drawable/ic_play_arrow_black_24dp" />
 
-                <Button
-                    android:id="@+id/aspectRatioBtn"
-                    style="?buttonBarButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:minWidth="52dp"
-                    android:text="FIT"
-                    android:textAllCaps="false"
-                    android:textColor="@android:color/white"
-                    android:contentDescription="Change video aspect ratio" />
+
 
             </LinearLayout>
         </LinearLayout>
