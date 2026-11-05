@@ -49,4 +49,40 @@
 
     </androidx.recyclerview.widget.RecyclerView>
 
+    <!-- Subtitle timing lives inside the track chooser instead of over the video. -->
+    <LinearLayout
+        android:id="@+id/subtitleDelayRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/list"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <Button
+            android:id="@+id/subtitleDelayMinus"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="56dp"
+            android:layout_height="48dp"
+            android:text="−0.5s"
+            android:textAllCaps="false" />
+
+        <TextView
+            android:id="@+id/subtitleDelayValue"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="Sync: +0.0s"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/subtitleDelayPlus"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="56dp"
+            android:layout_height="48dp"
+            android:text="+0.5s"
+            android:textAllCaps="false" />
+    </LinearLayout>
+
 </RelativeLayout>
