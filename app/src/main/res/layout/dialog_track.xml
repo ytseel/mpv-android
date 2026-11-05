@@ -1,88 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
 
-    <!-- this should really be a TabLayout but I was too lazy -->
-
-    <TableRow
-        android:id="@+id/buttonRow"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true">
-
-        <Button
-            android:id="@+id/primaryBtn"
-            style="@style/Widget.AppCompat.Button.Borderless.Colored"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/track_primary" />
-
-        <Button
-            android:id="@+id/secondaryBtn"
-            style="@style/Widget.AppCompat.Button.Borderless.Colored"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/track_secondary" />
-
-    </TableRow>
-
-    <View
-        android:id="@+id/divider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_below="@id/buttonRow"
-        android:background="?android:attr/listDivider" />
-
+    <!-- Only the primary subtitle track chooser. Live sync is on the video overlay. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/list"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/divider"
         android:padding="8dp"
         app:layoutManager="LinearLayoutManager"
-        tools:listitem="@layout/dialog_track_item">
+        tools:listitem="@layout/dialog_track_item" />
 
-    </androidx.recyclerview.widget.RecyclerView>
-
-    <!-- Subtitle timing lives inside the track chooser instead of over the video. -->
-    <LinearLayout
-        android:id="@+id/subtitleDelayRow"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/list"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="8dp">
-
-        <Button
-            android:id="@+id/subtitleDelayMinus"
-            style="@style/Widget.AppCompat.Button.Borderless"
-            android:layout_width="56dp"
-            android:layout_height="48dp"
-            android:text="−0.5s"
-            android:textAllCaps="false" />
-
-        <TextView
-            android:id="@+id/subtitleDelayValue"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="Sync: +0.0s"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/subtitleDelayPlus"
-            style="@style/Widget.AppCompat.Button.Borderless"
-            android:layout_width="56dp"
-            android:layout_height="48dp"
-            android:text="+0.5s"
-            android:textAllCaps="false" />
-    </LinearLayout>
-
-</RelativeLayout>
+</LinearLayout>
