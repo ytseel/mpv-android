@@ -166,20 +166,37 @@
                     tools:src="@drawable/ic_play_arrow_black_24dp" />
 
                 <Button
-                    android:id="@+id/cycleDecoderBtn"
+                    android:id="@+id/aspectRatioBtn"
                     style="?buttonBarButtonStyle"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
+                    android:minWidth="52dp"
+                    android:text="FIT"
+                    android:textAllCaps="false"
                     android:textColor="@android:color/white"
-                    tools:text="HW+" />
+                    android:contentDescription="Change video aspect ratio" />
 
                 <Button
-                    android:id="@+id/cycleSpeedBtn"
+                    android:id="@+id/subDelayMinusBtn"
                     style="?buttonBarButtonStyle"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
+                    android:minWidth="58dp"
+                    android:text="Sub −"
+                    android:textAllCaps="false"
                     android:textColor="@android:color/white"
-                    tools:text="1.00X" />
+                    android:contentDescription="Shift subtitles earlier by half a second" />
+
+                <Button
+                    android:id="@+id/subDelayPlusBtn"
+                    style="?buttonBarButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:minWidth="58dp"
+                    android:text="Sub +"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    android:contentDescription="Shift subtitles later by half a second" />
 
             </LinearLayout>
         </LinearLayout>
