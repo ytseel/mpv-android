@@ -200,7 +200,6 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             cycleAudioBtn.setOnClickListener { pickAudio() }
             cycleSubsBtn.setOnClickListener { pickSub() }
             playBtn.setOnClickListener { player.cyclePause() }
-            aspectRatioBtn.setOnClickListener { cycleAspectRatio() }
             topSpeedBtn.setOnClickListener { showOverlaySpeedDialog() }
             topLockBtn.setOnClickListener { lockUI() }
             topPiPBtn.setOnClickListener { goIntoPiP() }
@@ -1424,38 +1423,6 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         }
     }
 
-    private var aspectRatioMode = 0
-    private val aspectRatioLabels = arrayOf("FIT", "FILL", "16:9", "4:3", "1:1")
-
-    /** Cycle video display modes without changing the underlying media decoder. */
-    private fun cycleAspectRatio() {
-        aspectRatioMode = (aspectRatioMode + 1) % aspectRatioLabels.size
-        when (aspectRatioMode) {
-            0 -> {
-                MPVLib.setPropertyString("video-aspect-override", "-1")
-                MPVLib.setPropertyDouble("panscan", 0.0)
-            }
-            1 -> {
-                MPVLib.setPropertyString("video-aspect-override", "-1")
-                MPVLib.setPropertyDouble("panscan", 1.0)
-            }
-            2 -> {
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-aspect-override", "16:9")
-            }
-            3 -> {
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-aspect-override", "4:3")
-            }
-            4 -> {
-                MPVLib.setPropertyDouble("panscan", 0.0)
-                MPVLib.setPropertyString("video-aspect-override", "1:1")
-            }
-        }
-        binding.aspectRatioBtn.text = aspectRatioLabels[aspectRatioMode]
-        showToast("Aspect ratio: " + aspectRatioLabels[aspectRatioMode], true)
-    }
-
     /** mpv subtitle delay: positive means subtitles appear later. */
     private fun adjustSubtitleDelay(deltaSeconds: Double) {
         val current = MPVLib.getPropertyDouble("sub-delay") ?: 0.0
@@ -1903,8 +1870,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     private fun updateAudioUI() {
         val audioButtons = arrayOf(R.id.prevBtn, R.id.cycleAudioBtn, R.id.playBtn, R.id.nextBtn)
-        val videoButtons = arrayOf(R.id.cycleAudioBtn, R.id.cycleSubsBtn, R.id.playBtn,
-                R.id.aspectRatioBtn)
+        val videoButtons = arrayOf(R.id.cycleAudioBtn, R.id.cycleSubsBtn, R.id.playBtn)
 
         val shouldUseAudioUI = isPlayingAudioOnly()
         if (shouldUseAudioUI == useAudioUI)
